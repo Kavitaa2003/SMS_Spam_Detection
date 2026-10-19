@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Log in — Spam Scanner</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <nav>
+    <a href="/" class="brand"><span class="brand-mark"></span> Spam Scanner</a>
+    <div class="nav-links" id="nav-links"></div>
+  </nav>
+
+  <main>
+    <div class="auth-card">
+      <p class="eyebrow">// welcome back</p>
+      <h1 style="font-size: 24px;">Log in</h1>
+      <div class="error-banner" id="error-banner"></div>
+      <form id="login-form">
+        <div class="field">
+          <label for="username">Username</label>
+          <input type="text" id="username" required autocomplete="username" />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" required autocomplete="current-password" />
+        </div>
+        <button type="submit" class="primary" id="submit-btn">Log in</button>
+      </form>
+      <p class="auth-switch">No account yet? <a href="/register">Sign up</a></p>
+    </div>
+  </main>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    const form = document.getElementById('login-form');
+    const errorBanner = document.getElementById('error-banner');
+    const submitBtn = document.getElementById('submit-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorBanner.classList.remove('show');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Logging in...';
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      try {
+        const data = await apiFetch('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ username, password }),
+        });
+        Auth.setSession(data.access_token, username);
+        window.location.href = '/';
+      } catch (err) {
+        errorBanner.textContent = err.message;
+        errorBanner.classList.add('show');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Log in';
+      }
+    });
+  </script>
+</body>
+</html>

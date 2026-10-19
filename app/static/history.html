@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>History — Spam Scanner</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <nav>
+    <a href="/" class="brand"><span class="brand-mark"></span> Spam Scanner</a>
+    <div class="nav-links" id="nav-links"></div>
+  </nav>
+
+  <main>
+    <p class="eyebrow">// your scans</p>
+    <h1>History</h1>
+    <p class="subtitle">Every message you've scanned while logged in.</p>
+    <div id="history-container"></div>
+  </main>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    const container = document.getElementById('history-container');
+
+    function formatTime(iso) {
+      const d = new Date(iso + 'Z');
+      return d.toLocaleString(undefined, {
+        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+      });
+    }
+
+    async function loadHistory() {
+      if (!Auth.isLoggedIn()) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <span class="eyebrow">// no session</span>
+            <p>Log in to see your scan history.</p>
+          </div>`;
+        return;
+      }
+
+      try {
+        const items = await apiFetch('/api/history');
+        if (items.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <span class="eyebrow">// empty</span>
+              <p>No scans yet — head to the scanner to check your first message.</p>
+            </div>`;
+          return;
+        }
+
+        container.innerHTML = items.map(item => `
+          <div class="history-item">
+            <span class="history-msg">${item.message.replace(/</g, '&lt;')}</span>
+            <div class="history-meta">
+              <span class="history-time">${formatTime(item.checked_at)}</span>
+              <span class="badge ${item.is_spam ? 'spam' : 'ham'}">${item.is_spam ? 'SPAM' : 'HAM'}</span>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = `<p class="hint" style="color: var(--danger);">${err.message}</p>`;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadHistory);
+  </script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spam Scanner</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <nav>
+    <a href="/" class="brand"><span class="brand-mark"></span> Spam Scanner</a>
+    <div class="nav-links" id="nav-links"></div>
+  </nav>
+
+  <main>
+    <p class="eyebrow">// ensemble classifier</p>
+    <h1>Check a message</h1>
+    <p class="subtitle">
+      Runs 4 trained models (Naive Bayes, SVM, Random Forest, character-level SVM) plus
+      8 rule-based checks for links and scam language, combined by a meta-model.
+    </p>
+
+    <div class="scanner">
+      <textarea
+        id="message-input"
+        placeholder="Paste an SMS message to scan, e.g. &quot;URGENT! You've won a prize, claim now: bit.ly/xyz&quot;"
+        maxlength="2000"
+      ></textarea>
+      <div class="scanner-footer">
+        <span class="char-count"><span id="char-count">0</span> / 2000</span>
+        <button class="primary" id="scan-btn">Scan message</button>
+      </div>
+      <p class="hint" id="guest-hint">
+        Scanning works without an account. <a href="/register">Sign up</a> to save your scan history.
+      </p>
+    </div>
+
+    <div id="result-container"></div>
+  </main>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    const input = document.getElementById('message-input');
+    const charCount = document.getElementById('char-count');
+    const scanBtn = document.getElementById('scan-btn');
+    const resultContainer = document.getElementById('result-container');
+    const guestHint = document.getElementById('guest-hint');
+
+    input.addEventListener('input', () => {
+      charCount.textContent = input.value.length;
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (Auth.isLoggedIn()) guestHint.style.display = 'none';
+    });
+
+    function flagLabel(key) {
+      const labels = {
+        has_url: 'Contains a link',
+        has_shortened_link: 'Shortened link domain',
+        has_urgency_words: 'Urgency language',
+        has_prize_words: 'Prize / reward language',
+        has_phone_number: 'Phone number / shortcode',
+        has_currency_symbol: 'Currency symbol',
+        has_excessive_punctuation: 'Excessive punctuation',
+        has_excessive_caps: 'Excessive capitals',
+      };
+      return labels[key] || key;
+    }
+
+    function modelLabel(key) {
+      const labels = {
+        naive_bayes: 'Naive Bayes',
+        linear_svm: 'Linear SVM',
+        random_forest: 'Random Forest',
+        char_ngram_svm: 'Char n-gram SVM',
+      };
+      return labels[key] || key;
+    }
+
+    function renderResult(data) {
+      const verdictClass = data.is_spam ? 'spam' : 'ham';
+      const verdictText = data.is_spam ? 'Likely spam' : 'Looks safe';
+      const icon = data.is_spam ? '⚠' : '✓';
+
+      const chipsHtml = Object.entries(data.model_votes).map(([model, vote]) => `
+        <div class="chip ${vote}">
+          <span class="chip-dot"></span> ${modelLabel(model)}: ${vote}
+        </div>
+      `).join('');
+
+      const flagsHtml = Object.entries(data.heuristic_flags).map(([flag, active]) => `
+        <div class="flag ${active ? 'active' : ''}">
+          <span class="flag-light"></span> ${flagLabel(flag)}
+        </div>
+      `).join('');
+
+      resultContainer.innerHTML = `
+        <div class="report">
+          <div class="verdict ${verdictClass}">
+            <div class="verdict-label">${icon} ${verdictText}</div>
+            <div class="confidence">
+              <strong>${Math.round(data.confidence * 100)}%</strong>
+              model agreement
+            </div>
+          </div>
+          <div class="report-body">
+            <p class="section-label">Model votes</p>
+            <div class="chips">${chipsHtml}</div>
+            <p class="section-label">Signal checks</p>
+            <div class="flags">${flagsHtml}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function scanMessage() {
+      const message = input.value.trim();
+      if (!message) return;
+
+      scanBtn.disabled = true;
+      scanBtn.textContent = 'Scanning...';
+
+      try {
+        const data = await apiFetch('/api/predict', {
+          method: 'POST',
+          body: JSON.stringify({ message }),
+        });
+        renderResult(data);
+      } catch (err) {
+        resultContainer.innerHTML = `<p class="hint" style="color: var(--danger);">${err.message}</p>`;
+      } finally {
+        scanBtn.disabled = false;
+        scanBtn.textContent = 'Scan message';
+      }
+    }
+
+    scanBtn.addEventListener('click', scanMessage);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) scanMessage();
+    });
+  </script>
+</body>
+</html>

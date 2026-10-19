@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign up — Spam Scanner</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <nav>
+    <a href="/" class="brand"><span class="brand-mark"></span> Spam Scanner</a>
+    <div class="nav-links" id="nav-links"></div>
+  </nav>
+
+  <main>
+    <div class="auth-card">
+      <p class="eyebrow">// create account</p>
+      <h1 style="font-size: 24px;">Sign up</h1>
+      <div class="error-banner" id="error-banner"></div>
+      <form id="register-form">
+        <div class="field">
+          <label for="username">Username</label>
+          <input type="text" id="username" required minlength="3" maxlength="50" autocomplete="username" />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" required minlength="6" autocomplete="new-password" />
+        </div>
+        <button type="submit" class="primary" id="submit-btn">Create account</button>
+      </form>
+      <p class="auth-switch">Already have an account? <a href="/login">Log in</a></p>
+    </div>
+  </main>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    const form = document.getElementById('register-form');
+    const errorBanner = document.getElementById('error-banner');
+    const submitBtn = document.getElementById('submit-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorBanner.classList.remove('show');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Creating account...';
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      try {
+        await apiFetch('/api/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({ username, password }),
+        });
+        // Registration succeeded — log in immediately for a smooth flow.
+        const loginData = await apiFetch('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ username, password }),
+        });
+        Auth.setSession(loginData.access_token, username);
+        window.location.href = '/';
+      } catch (err) {
+        errorBanner.textContent = err.message;
+        errorBanner.classList.add('show');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Create account';
+      }
+    });
+  </script>
+</body>
+</html>
